@@ -56,7 +56,7 @@ open class CameraViewController: UIViewController {
     
     var animationDuration: TimeInterval = 0.5
     var animationSpring: CGFloat = 0.5
-    var rotateAnimation: UIViewAnimationOptions = .curveLinear
+    var rotateAnimation: UIView.AnimationOptions = .curveLinear
     
     var cameraButtonEdgeConstraint: NSLayoutConstraint?
     var cameraButtonGravityConstraint: NSLayoutConstraint?
@@ -275,6 +275,7 @@ open class CameraViewController: UIViewController {
         checkPermissions()
         cameraView.configureFocus()
         cameraView.configureZoom()
+        cameraView.delegate = self
     }
 
     /**
@@ -349,7 +350,7 @@ open class CameraViewController: UIViewController {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(rotateCameraView),
-            name: NSNotification.Name.UIDeviceOrientationDidChange,
+            name: UIDevice.orientationDidChangeNotification,
             object: nil)
     }
     
@@ -498,20 +499,14 @@ open class CameraViewController: UIViewController {
      * the picture on the device.
      */
     internal func capturePhoto() {
-        guard let output = cameraView.imageOutput,
+        guard let output = cameraView.output,
             let connection = output.connection(with: AVMediaType.video) else {
             return
         }
         
         if connection.isEnabled {
             toggleButtons(enabled: false)
-            cameraView.capturePhoto { [weak self] image in
-                guard let image = image else {
-                    self?.toggleButtons(enabled: true)
-                    return
-                }
-                self?.saveImage(image: image)
-            }
+            cameraView.takePicture()
         }
     }
     
@@ -564,12 +559,8 @@ open class CameraViewController: UIViewController {
     
     internal func toggleFlash() {
         cameraView.cycleFlash()
-        
-        guard let device = cameraView.device else {
-            return
-        }
   
-        let image = UIImage(named: flashImage(device.flashMode),
+        let image = UIImage(named: flashImage(cameraView.flash),
                             in: CameraGlobals.shared.bundle,
                             compatibleWith: nil)
         
@@ -631,12 +622,12 @@ open class CameraViewController: UIViewController {
 
     private func showSpinner() -> UIActivityIndicatorView {
         let spinner = UIActivityIndicatorView()
-        spinner.activityIndicatorViewStyle = .white
+        spinner.style = .white
         spinner.center = view.center
         spinner.startAnimating()
         
         view.addSubview(spinner)
-        view.bringSubview(toFront: spinner)
+        view.bringSubviewToFront(spinner)
         
         return spinner
     }
@@ -645,5 +636,16 @@ open class CameraViewController: UIViewController {
         spinner.stopAnimating()
         spinner.removeFromSuperview()
     }
+    
+}
+extension CameraViewController : CameraViewDelegate{
+    func photoOutput(_ image: UIImage?) {
+        guard let image = image else {
+            self.toggleButtons(enabled: true)
+            return
+        }
+        self.saveImage(image: image)
+    }
+    
     
 }
